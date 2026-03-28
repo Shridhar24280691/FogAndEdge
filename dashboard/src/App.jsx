@@ -71,7 +71,6 @@ function SensorTable({ data }) {
     </div>
   );
 }
-
 function App() {
   const [dashboard, setDashboard] = useState({
     summary: { currentTotalPower: 0, deviceCount: 0, alertCount: 0 },
