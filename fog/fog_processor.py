@@ -6,7 +6,6 @@ from paho.mqtt import client as mqtt_client
 from awscrt import io, mqtt
 from awsiot import mqtt_connection_builder
 
-
 BROKER = "localhost"
 PORT = 1883
 HOME_ID = "home1"
