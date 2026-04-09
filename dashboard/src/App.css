@@ -13,16 +13,49 @@ h1 {
   margin-bottom: 20px;
 }
 
+h2 {
+  margin: 0 0 16px;
+  font-size: 28px;
+}
+
+h3 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.section-title {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   margin-bottom: 20px;
 }
 
-.grid.two-col {
+.grid {
   display: grid;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.grid.two-col {
   grid-template-columns: 2fr 1fr;
+}
+
+.rooms-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
   margin-bottom: 20px;
 }
@@ -31,7 +64,7 @@ h1 {
   background: white;
   padding: 16px;
   border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .stat-card p {
@@ -40,13 +73,55 @@ h1 {
   margin: 0;
 }
 
+.room-card p,
+.motion-item p {
+  margin: 6px 0;
+  font-size: 14px;
+}
+
+.chart-card {
+  min-height: 320px;
+}
+
+.motion-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.motion-item {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.motion-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.motion-badge.active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.motion-badge.inactive {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
 }
 
-th, td {
+th,
+td {
   padding: 10px;
   border-bottom: 1px solid #ddd;
   text-align: left;
@@ -63,4 +138,43 @@ th, td {
   padding: 10px;
   margin-bottom: 10px;
   border-radius: 6px;
+}
+
+@media (max-width: 1200px) {
+  .stats-grid,
+  .rooms-grid,
+  .motion-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .app {
+    padding: 12px;
+  }
+
+  .stats-grid,
+  .rooms-grid,
+  .motion-grid,
+  .charts-grid,
+  .grid.two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    padding: 12px;
+  }
+
+  table {
+    font-size: 12px;
+  }
+
+  th,
+  td {
+    padding: 8px;
+  }
 }

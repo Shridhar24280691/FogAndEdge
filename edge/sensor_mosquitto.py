@@ -11,17 +11,35 @@ HOME_ID = "home1"
 PUBLISH_PERIOD = 10
 
 APPLIANCES = [
-    ("kitchen-main", "kitchen", 3000),
-    ("living-tvpc", "livingroom", 400),
-    ("living-heater", "livingroom", 1800),
+    ("bedroom-lights", "bedroom", 120),
     ("bedroom-heater", "bedroom", 1600),
-    ("bedroom-lights", "bedroom", 250),
-    ("bathroom-washer", "bathroom", 1000),
+    ("bedroom-computer", "bedroom", 450),
+
+    ("kitchen-microwave", "kitchen", 1400),
+    ("kitchen-induction", "kitchen", 2200),
+    ("kitchen-exhaust", "kitchen", 180),
+    ("kitchen-refrigerator", "kitchen", 250),
+    ("kitchen-dishwasher", "kitchen", 1800),
+    ("kitchen-lights", "kitchen", 100),
+
     ("bathroom-geyser", "bathroom", 2200),
+    ("bathroom-lights", "bathroom", 80),
+    ("bathroom-washer", "bathroom", 1000),
+
+    ("livingroom-heater", "livingroom", 1800),
+    ("livingroom-television", "livingroom", 180),
+    ("livingroom-lights", "livingroom", 120),
+]
+
+ROOM_SENSORS = [
+    ("bathroom-temp", "bathroom"),
+    ("bedroom-temp", "bedroom"),
+    ("kitchen-temp", "kitchen"),
+    ("livingroom-temp", "livingroom"),
 ]
 
 def connect_mqtt():
-    client_id = f"edge-publisher-{random.randint(1000,9999)}"
+    client_id = f"edge-publisher-{random.randint(1000, 9999)}"
     client = mqtt_client.Client(client_id=client_id, protocol=mqtt_client.MQTTv311)
     client.connect(BROKER, PORT)
     return client
@@ -31,25 +49,36 @@ def simulate_power(max_power):
         return 0.0
     return max_power * random.uniform(0.4, 0.95)
 
-def build_payload(device_id, room, max_power):
+def build_appliance_payload(device_id, room, max_power):
     voltage = random.uniform(220.0, 240.0)
     power = simulate_power(max_power)
     current = power / voltage if voltage > 0 else 0.0
     energy = power * (PUBLISH_PERIOD / 3600.0)
-    temp = random.uniform(19.0, 30.0)
     motion = random.random() < 0.6
 
     return {
         "homeId": HOME_ID,
         "deviceId": device_id,
+        "sensorType": "appliance",
         "room": room,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "voltage_V": round(voltage, 1),
         "current_A": round(current, 2),
         "power_W": round(power, 1),
         "energy_Wh": round(energy, 3),
-        "temperature_C": round(temp, 1),
         "motion": motion,
+        "source": "mosquitto-edge"
+    }
+
+def build_room_sensor_payload(device_id, room):
+    temp = random.uniform(10.0, 30.0)
+    return {
+        "homeId": HOME_ID,
+        "deviceId": device_id,
+        "sensorType": "room_temp",
+        "room": room,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "temperature_C": round(temp, 1),
         "source": "mosquitto-edge"
     }
 
@@ -61,9 +90,16 @@ def main():
         while True:
             for device_id, room, max_power in APPLIANCES:
                 topic = TOPIC_TEMPLATE.format(home_id=HOME_ID, device_id=device_id)
-                payload = build_payload(device_id, room, max_power)
+                payload = build_appliance_payload(device_id, room, max_power)
                 client.publish(topic, json.dumps(payload), qos=1)
-                print("Published:", topic, payload)
+                print("Published appliance:", topic, payload)
+
+            for device_id, room in ROOM_SENSORS:
+                topic = TOPIC_TEMPLATE.format(home_id=HOME_ID, device_id=device_id)
+                payload = build_room_sensor_payload(device_id, room)
+                client.publish(topic, json.dumps(payload), qos=1)
+                print("Published room sensor:", topic, payload)
+
             time.sleep(PUBLISH_PERIOD)
     except KeyboardInterrupt:
         print("Stopping edge publisher")
