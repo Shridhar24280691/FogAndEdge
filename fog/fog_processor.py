@@ -15,9 +15,10 @@ AGG_TOPIC_TEMPLATE = "home/{home_id}/aggregates/{device_id}"
 ALERT_TOPIC_TEMPLATE = "home/{home_id}/alerts/{device_id}"
 
 WINDOW_SIZE = 6
-HOME_THRESHOLD_KWH_1H = 5.0
 PUBLISH_PERIOD = 10
 ENERGY_WINDOW_SLOTS = int(3600 / PUBLISH_PERIOD)
+
+HOME_POWER_THRESHOLD_W = 5000.0
 
 AWS_ENDPOINT = "a1bqm601es3mh3-ats.iot.us-east-1.amazonaws.com"
 AWS_CLIENT_ID = "fog-cloud-publisher-home1"
@@ -31,14 +32,14 @@ latest_device_energy_wh = {}
 device_to_room = {}
 
 room_temperatures = {}
-room_temperature_timestamps = {}
-
 home_energy_window = deque(maxlen=ENERGY_WINDOW_SLOTS)
 
 aws_connection = None
 
+
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
+
 
 def connect_aws():
     global aws_connection
@@ -62,13 +63,12 @@ def connect_aws():
     aws_connection.connect().result()
     print("Connected to AWS IoT Core")
 
+
 def on_connect(client, userdata, flags, reason_code, properties=None):
     print("Fog processor connected with code", reason_code)
     client.subscribe(RAW_TOPIC, qos=1)
     print("Subscribed to", RAW_TOPIC)
 
-def publish_local(client, topic, payload):
-    client.publish(topic, json.dumps(payload), qos=1)
 
 def publish_aws(topic, payload):
     aws_connection.publish(
@@ -77,9 +77,6 @@ def publish_aws(topic, payload):
         qos=mqtt.QoS.AT_LEAST_ONCE
     )
 
-def publish_both(client, topic, payload):
-    publish_local(client, topic, payload)
-    publish_aws(topic, payload)
 
 def on_message(client, userdata, msg):
     try:
@@ -95,28 +92,42 @@ def on_message(client, userdata, msg):
     if not device_id:
         return
 
-    if sensor_type == "room_temp":
+    if sensor_type == "temperature":
         temperature = float(data.get("temperature_C", 0.0))
         room_temperatures[room] = temperature
-        room_temperature_timestamps[room] = data.get("timestamp", now_iso())
 
         room_payload = {
+            "recordType": "aggregate",
             "homeId": HOME_ID,
             "deviceId": device_id,
-            "sensorType": "room_temp",
+            "sensorType": "temperature",
             "room": room,
             "timestamp": now_iso(),
-            "temperature_C": round(temperature, 1)
+            "temperature_C": round(temperature, 1),
+            "last_power_W": 0.0,
+            "avg_power_last_min_W": 0.0,
+            "home_total_W": round(sum(latest_device_power.values()), 1),
+            "room_total_W": round(sum(
+                p for d, p in latest_device_power.items()
+                if device_to_room.get(d) == room
+            ), 1),
+            "voltage_V": 0.0,
+            "current_A": 0.0,
+            "motion": False,
+            "energy_last_hour_kWh": round(sum(home_energy_window) / 1000.0, 3),
+            "power_threshold_W": HOME_POWER_THRESHOLD_W
         }
 
         room_topic = AGG_TOPIC_TEMPLATE.format(home_id=HOME_ID, device_id=device_id)
-        publish_both(client, room_topic, room_payload)
-        print("[ROOM]", room_topic, room_payload)
+        publish_aws(room_topic, room_payload)
+        print("[ROOM->AWS]", room_topic, room_payload)
         return
 
     power = float(data.get("power_W", 0.0))
     energy_wh = float(data.get("energy_Wh", 0.0))
-    motion = data.get("motion")
+    motion = bool(data.get("motion", False))
+    voltage = float(data.get("voltage_V", 0.0))
+    current = float(data.get("current_A", 0.0))
 
     device_to_room[device_id] = room
     device_windows[device_id].append(power)
@@ -137,6 +148,7 @@ def on_message(client, userdata, msg):
     energy_last_hour_kwh = energy_last_hour_wh / 1000.0
 
     agg_payload = {
+        "recordType": "aggregate",
         "homeId": HOME_ID,
         "deviceId": device_id,
         "sensorType": "appliance",
@@ -146,24 +158,25 @@ def on_message(client, userdata, msg):
         "avg_power_last_min_W": round(avg_power, 1),
         "home_total_W": round(home_total, 1),
         "room_total_W": round(room_totals[room], 1),
-        "room_temperature_C": room_temperatures.get(room),
-        "voltage_V": round(float(data.get("voltage_V", 0.0)), 1),
-        "current_A": round(float(data.get("current_A", 0.0)), 2),
+        "room_temperature_C": room_temperatures.get(room, 0.0),
+        "voltage_V": round(voltage, 1),
+        "current_A": round(current, 2),
         "motion": motion,
-        "energy_last_hour_kWh": round(energy_last_hour_kwh, 3)
+        "energy_last_hour_kWh": round(energy_last_hour_kwh, 3),
+        "power_threshold_W": HOME_POWER_THRESHOLD_W
     }
 
     agg_topic = AGG_TOPIC_TEMPLATE.format(home_id=HOME_ID, device_id=device_id)
-    publish_both(client, agg_topic, agg_payload)
-    print("[AGG]", agg_topic, agg_payload)
+    publish_aws(agg_topic, agg_payload)
+    print("[AGG->AWS]", agg_topic, agg_payload)
 
     alerts = []
     if motion is False and power > 200:
         alerts.append("Power_high_without_motion")
     if avg_power > 2000:
         alerts.append("High_average_load_appliance")
-    if energy_last_hour_kwh > HOME_THRESHOLD_KWH_1H:
-        alerts.append("Home_energy_threshold_exceeded_1h")
+    if home_total > HOME_POWER_THRESHOLD_W:
+        alerts.append("Home_power_threshold_exceeded")
 
     if alerts:
         top_rooms = sorted(
@@ -180,22 +193,24 @@ def on_message(client, userdata, msg):
         )[:5]
 
         alert_payload = {
+            "recordType": "alert",
             "homeId": HOME_ID,
             "deviceId": device_id,
             "room": room,
             "timestamp": now_iso(),
             "alerts": alerts,
             "home_total_W": round(home_total, 1),
+            "power_threshold_W": HOME_POWER_THRESHOLD_W,
             "energy_last_hour_kWh": round(energy_last_hour_kwh, 3),
-            "threshold_kWh": HOME_THRESHOLD_KWH_1H,
             "topRooms": top_rooms,
             "topDevices": top_devices,
             "last_reading": data
         }
 
         alert_topic = ALERT_TOPIC_TEMPLATE.format(home_id=HOME_ID, device_id=device_id)
-        publish_both(client, alert_topic, alert_payload)
-        print("[ALERT]", alert_topic, alert_payload)
+        publish_aws(alert_topic, alert_payload)
+        print("[ALERT->AWS]", alert_topic, alert_payload)
+
 
 def main():
     connect_aws()
@@ -209,6 +224,7 @@ def main():
     client.on_message = on_message
     client.connect(BROKER, PORT)
     client.loop_forever()
+
 
 if __name__ == "__main__":
     main()

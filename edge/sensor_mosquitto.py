@@ -14,18 +14,15 @@ APPLIANCES = [
     ("bedroom-lights", "bedroom", 120),
     ("bedroom-heater", "bedroom", 1600),
     ("bedroom-computer", "bedroom", 450),
-
     ("kitchen-microwave", "kitchen", 1400),
     ("kitchen-induction", "kitchen", 2200),
     ("kitchen-exhaust", "kitchen", 180),
     ("kitchen-refrigerator", "kitchen", 250),
     ("kitchen-dishwasher", "kitchen", 1800),
     ("kitchen-lights", "kitchen", 100),
-
     ("bathroom-geyser", "bathroom", 2200),
     ("bathroom-lights", "bathroom", 80),
     ("bathroom-washer", "bathroom", 1000),
-
     ("livingroom-heater", "livingroom", 1800),
     ("livingroom-television", "livingroom", 180),
     ("livingroom-lights", "livingroom", 120),
@@ -75,7 +72,7 @@ def build_room_sensor_payload(device_id, room):
     return {
         "homeId": HOME_ID,
         "deviceId": device_id,
-        "sensorType": "room_temp",
+        "sensorType": "temperature",
         "room": room,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "temperature_C": round(temp, 1),

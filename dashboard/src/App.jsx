@@ -12,7 +12,7 @@ import {
 import "./App.css";
 
 const API_URL =
-  "https://1onf76qgpe.execute-api.us-east-1.amazonaws.com/default/GetSmartHomeDashboard";
+  "https://939fbyoanh.execute-api.us-east-1.amazonaws.com/default/smarthome-ingest-readings";
 
 const initialData = {
   summary: {},
@@ -22,6 +22,7 @@ const initialData = {
     voltage: [],
     current: [],
     power: [],
+    housePower: [],
     houseConsumption: []
   },
   motionOverview: [],
@@ -33,20 +34,20 @@ function safeNumber(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function normalizeCurrentConsumption(raw) {
+function normalizeHousePower(raw, summary) {
   const first = Array.isArray(raw) && raw.length > 0 ? raw[0] : {};
 
-  const currentValue = safeNumber(
-    first?.consumption_kWh ?? first?.kWh ?? first?.consumption ?? 0
+  const currentPower = safeNumber(
+    first?.power_W ?? summary?.currentTotalPower ?? 0
   );
 
-  const thresholdValue = safeNumber(
-    first?.threshold_kWh ?? first?.threshold ?? 5
+  const thresholdPower = safeNumber(
+    first?.threshold_W ?? 5000
   );
 
   return [
-    { name: "Current Consumption", value: currentValue, fill: "#ef4444" },
-    { name: "Threshold", value: thresholdValue, fill: "#2563eb" }
+    { name: "Current House Power", value: currentPower, fill: "#ef4444" },
+    { name: "Threshold Power", value: thresholdPower, fill: "#2563eb" }
   ];
 }
 
@@ -98,6 +99,9 @@ function App() {
             power: Array.isArray(json?.sensorCharts?.power)
               ? json.sensorCharts.power
               : [],
+            housePower: Array.isArray(json?.sensorCharts?.housePower)
+              ? json.sensorCharts.housePower
+              : [],
             houseConsumption: Array.isArray(json?.sensorCharts?.houseConsumption)
               ? json.sensorCharts.houseConsumption
               : []
@@ -129,9 +133,9 @@ function App() {
     : [];
   const alerts = Array.isArray(data?.alerts) ? data.alerts : [];
 
-  const overallConsumptionBarData = useMemo(() => {
-    return normalizeCurrentConsumption(sensorCharts.houseConsumption);
-  }, [sensorCharts.houseConsumption]);
+  const overallHousePowerBarData = useMemo(() => {
+    return normalizeHousePower(sensorCharts.housePower, summary);
+  }, [sensorCharts.housePower, summary]);
 
   const renderChart = (title, chartData = [], dataKey, color, unit) => (
     <div className="card chart-card">
@@ -169,10 +173,6 @@ function App() {
           <p>{safeNumber(summary.currentTotalPower).toFixed(1)} W</p>
         </div>
         <div className="card stat-card">
-          <h3>Energy Last Hour</h3>
-          <p>{safeNumber(summary.energyLastHourKWh).toFixed(3)} kWh</p>
-        </div>
-        <div className="card stat-card">
           <h3>Rooms</h3>
           <p>{safeNumber(summary.roomCount, rooms.length)}</p>
         </div>
@@ -197,22 +197,22 @@ function App() {
       )}
 
       <div className="card" style={{ marginBottom: "20px" }}>
-        <div className="section-title">Overall House Consumption</div>
+        <div className="section-title">Overall House Power vs Threshold</div>
         <ResponsiveContainer width="100%" height={320}>
           <BarChart
-            data={overallConsumptionBarData}
+            data={overallHousePowerBarData}
             margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="name" tick={{ fontSize: 12 }} />
             <YAxis />
             <Tooltip
-              formatter={(value) => [`${safeNumber(value).toFixed(3)} kWh`, "Value"]}
+              formatter={(value) => [`${safeNumber(value).toFixed(1)} W`, "Power"]}
             />
             <Legend />
             <Bar
               dataKey="value"
-              name="kWh"
+              name="Power (W)"
               shape={<CustomBar />}
             />
           </BarChart>
