@@ -26,7 +26,7 @@ AWS_CERT = "C:/FogAndEdge/certs/ef58ff1fb135d12e3389bef8d451e8869b0bf11bcffc240b
 AWS_KEY = "C:/FogAndEdge/certs/ef58ff1fb135d12e3389bef8d451e8869b0bf11bcffc240b08c3e982b1d7883c-private.pem.key"
 AWS_CA = "C:/FogAndEdge/certs/AmazonRootCA1.pem"
 
-device_windows = defaultdict(lambda: deque(maxlen=WINDOW_SIZE))
+device_windows = defaultdict(lambda: deque(maxlen=WINDOW_SIZE)) 
 latest_device_power = {}
 latest_device_energy_wh = {}
 device_to_room = {}
@@ -40,7 +40,7 @@ aws_connection = None
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
-
+# AWS IoT Core connection setup
 def connect_aws():
     global aws_connection
 
@@ -63,13 +63,13 @@ def connect_aws():
     aws_connection.connect().result()
     print("Connected to AWS IoT Core")
 
-
+# MQTT callbacks and processing logic
 def on_connect(client, userdata, flags, reason_code, properties=None):
     print("Fog processor connected with code", reason_code)
     client.subscribe(RAW_TOPIC, qos=1)
     print("Subscribed to", RAW_TOPIC)
 
-
+# Helper function to publish to AWS IoT Core
 def publish_aws(topic, payload):
     aws_connection.publish(
         topic=topic,
@@ -77,7 +77,7 @@ def publish_aws(topic, payload):
         qos=mqtt.QoS.AT_LEAST_ONCE
     )
 
-
+# Main message processing function
 def on_message(client, userdata, msg):
     try:
         data = json.loads(msg.payload.decode())
@@ -122,31 +122,31 @@ def on_message(client, userdata, msg):
         publish_aws(room_topic, room_payload)
         print("[ROOM->AWS]", room_topic, room_payload)
         return
-
+# For appliance readings, we process power and energy data
     power = float(data.get("power_W", 0.0))
     energy_wh = float(data.get("energy_Wh", 0.0))
     motion = bool(data.get("motion", False))
     voltage = float(data.get("voltage_V", 0.0))
     current = float(data.get("current_A", 0.0))
-
+# Update device-room mapping and sliding windows
     device_to_room[device_id] = room
     device_windows[device_id].append(power)
     latest_device_power[device_id] = power
     latest_device_energy_wh[device_id] = energy_wh
-
+# Calculate aggregates
     avg_power = sum(device_windows[device_id]) / len(device_windows[device_id])
     home_total = sum(latest_device_power.values())
-
+# Calculate room totals
     room_totals = defaultdict(float)
     for dev, pwr in latest_device_power.items():
         dev_room = device_to_room.get(dev, "unknown")
-        room_totals[dev_room] += pwr
-
+        room_totals[dev_room] += pwr # Update room totals for all rooms
+# Update energy window and calculate last hour energy
     interval_total_wh = sum(latest_device_energy_wh.values())
     home_energy_window.append(interval_total_wh)
     energy_last_hour_wh = sum(home_energy_window)
     energy_last_hour_kwh = energy_last_hour_wh / 1000.0
-
+# Build aggregate payload
     agg_payload = {
         "recordType": "aggregate",
         "homeId": HOME_ID,
@@ -165,11 +165,11 @@ def on_message(client, userdata, msg):
         "energy_last_hour_kWh": round(energy_last_hour_kwh, 3),
         "power_threshold_W": HOME_POWER_THRESHOLD_W
     }
-
+# Publish aggregate data to AWS IoT Core
     agg_topic = AGG_TOPIC_TEMPLATE.format(home_id=HOME_ID, device_id=device_id)
     publish_aws(agg_topic, agg_payload)
     print("[AGG->AWS]", agg_topic, agg_payload)
-
+# Check for alert conditions
     alerts = []
     if motion is False and power > 200:
         alerts.append("Power_high_without_motion")
@@ -177,21 +177,22 @@ def on_message(client, userdata, msg):
         alerts.append("High_average_load_appliance")
     if home_total > HOME_POWER_THRESHOLD_W:
         alerts.append("Home_power_threshold_exceeded")
-
+# If any alerts are triggered, build and publish an alert message
     if alerts:
+# Get top 3 rooms by power consumption
         top_rooms = sorted(
             [{"room": r, "power_W": round(v, 1)} for r, v in room_totals.items()],
             key=lambda x: x["power_W"],
             reverse=True
         )[:3]
-
+# Get top 5 devices by power consumption
         top_devices = sorted(
             [{"deviceId": d, "room": device_to_room.get(d, "unknown"), "power_W": round(p, 1)}
              for d, p in latest_device_power.items()],
             key=lambda x: x["power_W"],
             reverse=True
         )[:5]
-
+# Build alert payload with detailed information
         alert_payload = {
             "recordType": "alert",
             "homeId": HOME_ID,
@@ -206,15 +207,15 @@ def on_message(client, userdata, msg):
             "topDevices": top_devices,
             "last_reading": data
         }
-
+# Publish alert to AWS IoT Core
         alert_topic = ALERT_TOPIC_TEMPLATE.format(home_id=HOME_ID, device_id=device_id)
         publish_aws(alert_topic, alert_payload)
         print("[ALERT->AWS]", alert_topic, alert_payload)
 
 
 def main():
-    connect_aws()
-
+    connect_aws() # Connect to AWS IoT Core first
+# Set up MQTT client for local broker
     client = mqtt_client.Client(
         mqtt_client.CallbackAPIVersion.VERSION2,
         client_id="fog-processor-home1",

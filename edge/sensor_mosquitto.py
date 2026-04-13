@@ -10,7 +10,7 @@ TOPIC_TEMPLATE = "home/{home_id}/sensors/{device_id}"
 HOME_ID = "home1"
 PUBLISH_PERIOD = 10
 
-APPLIANCES = [
+APPLIANCES = [ # Device ID, Room, Max Power in Watts
     ("bedroom-lights", "bedroom", 120),
     ("bedroom-heater", "bedroom", 1600),
     ("bedroom-computer", "bedroom", 450),
@@ -27,7 +27,7 @@ APPLIANCES = [
     ("livingroom-television", "livingroom", 180),
     ("livingroom-lights", "livingroom", 120),
 ]
-
+# Room sensors temperature only
 ROOM_SENSORS = [
     ("bathroom-temp", "bathroom"),
     ("bedroom-temp", "bedroom"),
@@ -35,17 +35,17 @@ ROOM_SENSORS = [
     ("livingroom-temp", "livingroom"),
 ]
 
-def connect_mqtt():
+def connect_mqtt(): # Connect to local Mosquitto broker using MQTT v3.1.1 for compatibility
     client_id = f"edge-publisher-{random.randint(1000, 9999)}"
-    client = mqtt_client.Client(client_id=client_id, protocol=mqtt_client.MQTTv311)
+    client = mqtt_client.Client(client_id=client_id, protocol=mqtt_client.MQTTv311) # Use MQTT v3.1.1 for compatibility with Mosquitto
     client.connect(BROKER, PORT)
     return client
-
+# Simulate power consumption with a random chance of being off (0W) or on (random value up to max_power)
 def simulate_power(max_power):
     if random.random() < 0.55:
         return 0.0
     return max_power * random.uniform(0.4, 0.95)
-
+# Build payload for appliance sensor with realistic voltage, current, power, energy, and motion values
 def build_appliance_payload(device_id, room, max_power):
     voltage = random.uniform(220.0, 240.0)
     power = simulate_power(max_power)
@@ -66,7 +66,7 @@ def build_appliance_payload(device_id, room, max_power):
         "motion": motion,
         "source": "mosquitto-edge"
     }
-
+# Build payload for room sensor with realistic temperature values
 def build_room_sensor_payload(device_id, room):
     temp = random.uniform(10.0, 30.0)
     return {
@@ -78,7 +78,7 @@ def build_room_sensor_payload(device_id, room):
         "temperature_C": round(temp, 1),
         "source": "mosquitto-edge"
     }
-
+# The main function connects to the local Mosquitto broker, then continuously publishes simulated appliance and room sensor data every 10 seconds. It handles graceful shutdown on keyboard interrupt.
 def main():
     client = connect_mqtt()
     client.loop_start()

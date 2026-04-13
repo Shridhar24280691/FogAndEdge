@@ -22,11 +22,10 @@ const initialData = {
     voltage: [],
     current: [],
     power: [],
-    housePower: [],
-    houseConsumption: []
+    housePower: []
   },
   motionOverview: [],
-  alerts: []
+  activeAlerts: []
 };
 
 function safeNumber(value, fallback = 0) {
@@ -41,9 +40,7 @@ function normalizeHousePower(raw, summary) {
     first?.power_W ?? summary?.currentTotalPower ?? 0
   );
 
-  const thresholdPower = safeNumber(
-    first?.threshold_W ?? 5000
-  );
+  const thresholdPower = safeNumber(first?.threshold_W ?? 5000);
 
   return [
     { name: "Current House Power", value: currentPower, fill: "#ef4444" },
@@ -101,15 +98,14 @@ function App() {
               : [],
             housePower: Array.isArray(json?.sensorCharts?.housePower)
               ? json.sensorCharts.housePower
-              : [],
-            houseConsumption: Array.isArray(json?.sensorCharts?.houseConsumption)
-              ? json.sensorCharts.houseConsumption
               : []
           },
           motionOverview: Array.isArray(json?.motionOverview)
             ? json.motionOverview
             : [],
-          alerts: Array.isArray(json?.alerts) ? json.alerts : []
+          activeAlerts: Array.isArray(json?.activeAlerts)
+            ? json.activeAlerts
+            : []
         });
       } catch (err) {
         console.error("Failed to load dashboard data:", err);
@@ -131,7 +127,9 @@ function App() {
   const motionOverview = Array.isArray(data?.motionOverview)
     ? data.motionOverview
     : [];
-  const alerts = Array.isArray(data?.alerts) ? data.alerts : [];
+  const activeAlerts = Array.isArray(data?.activeAlerts)
+    ? data.activeAlerts
+    : [];
 
   const overallHousePowerBarData = useMemo(() => {
     return normalizeHousePower(sensorCharts.housePower, summary);
@@ -178,15 +176,15 @@ function App() {
         </div>
         <div className="card stat-card">
           <h3>Alerts</h3>
-          <p>{safeNumber(summary.alertCount, alerts.length)}</p>
+          <p>{safeNumber(summary.alertCount, activeAlerts.length)}</p>
         </div>
       </div>
 
-      {alerts.length > 0 && (
+      {activeAlerts.length > 0 && (
         <div className="card" style={{ marginBottom: "20px" }}>
           <div className="section-title">Active Alerts</div>
           <div className="alerts-list">
-            {alerts.map((alert, index) => (
+            {activeAlerts.map((alert, index) => (
               <div className="alert-item" key={index}>
                 <strong>{alert?.severity?.toUpperCase() || "ALERT"}:</strong>{" "}
                 {alert?.message || "Unknown alert"}
