@@ -120,14 +120,14 @@ def upsert_summary(event):
  # Upsert current summary into DynamoDB with a fixed sort key for easy retrieval of the latest summary, and also store historical summaries with a timestamp-based sort key for trend analysis. This allows the dashboard to quickly access the latest
     current_item = {
         "pk": f"HOME#{home_id}",
-        "sk": "SUMMARY#CURRENT",
+        "sk": "SUMMARY#CURRENT", 
         "recordType": "summary_current",
         "homeId": home_id,
         "timestamp": timestamp,
         "currentTotalPower": to_decimal(current_total_power),
         "energyLastHourKWh": to_decimal(energy_last_hour_kwh)
     }
-    state_table.put_item(Item=current_item)
+    state_table.put_item(Item=current_item) 
  # Also store historical summary with minute bucket for trend analysis and historical charts on the dashboard. This allows for tracking how power consumption changes over time and identifying patterns
     bucket = minute_bucket(timestamp)
     history_item = {
@@ -201,7 +201,7 @@ def store_alert(alert):
         alerts_table.put_item(Item=alert_item)
 
  # Load recent alerts from DynamoDB, filter out any irrelevant messages, and return a list of recent alerts sorted by timestamp. This function is used to populate the recent alerts section on the dashboard, allowing users to see the latest issues and their details.
-def load_recent_alerts(limit=10):
+def load_recent_alerts(limit=10): 
     items = []
     scan_kwargs = {}
 

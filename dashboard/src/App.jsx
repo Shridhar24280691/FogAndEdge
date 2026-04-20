@@ -22,10 +22,12 @@ const initialData = {
     voltage: [],
     current: [],
     power: [],
-    housePower: []
+    housePower: [],
+    summaryHistory: []
   },
   motionOverview: [],
-  activeAlerts: []
+  activeAlerts: [],
+  recentAlerts: []
 };
 
 function safeNumber(value, fallback = 0) {
@@ -98,6 +100,9 @@ function App() {
               : [],
             housePower: Array.isArray(json?.sensorCharts?.housePower)
               ? json.sensorCharts.housePower
+              : [],
+            summaryHistory: Array.isArray(json?.sensorCharts?.summaryHistory)
+              ? json.sensorCharts.summaryHistory
               : []
           },
           motionOverview: Array.isArray(json?.motionOverview)
@@ -105,6 +110,9 @@ function App() {
             : [],
           activeAlerts: Array.isArray(json?.activeAlerts)
             ? json.activeAlerts
+            : [],
+          recentAlerts: Array.isArray(json?.recentAlerts)
+            ? json.recentAlerts
             : []
         });
       } catch (err) {
@@ -129,6 +137,9 @@ function App() {
     : [];
   const activeAlerts = Array.isArray(data?.activeAlerts)
     ? data.activeAlerts
+    : [];
+  const recentAlerts = Array.isArray(data?.recentAlerts)
+    ? data.recentAlerts
     : [];
 
   const overallHousePowerBarData = useMemo(() => {
@@ -188,6 +199,23 @@ function App() {
               <div className="alert-item" key={index}>
                 <strong>{alert?.severity?.toUpperCase() || "ALERT"}:</strong>{" "}
                 {alert?.message || "Unknown alert"}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {recentAlerts.length > 0 && (
+        <div className="card" style={{ marginBottom: "20px" }}>
+          <div className="section-title">Recent Alerts</div>
+          <div className="alerts-list">
+            {recentAlerts.map((alert, index) => (
+              <div className="alert-item" key={index}>
+                <strong>{alert?.severity?.toUpperCase() || "ALERT"}:</strong>{" "}
+                {alert?.message || "Unknown alert"}
+                <div style={{ fontSize: "12px", opacity: 0.7, marginTop: "4px" }}>
+                  {alert?.room || "-"} · {alert?.timestamp || "-"}
+                </div>
               </div>
             ))}
           </div>
